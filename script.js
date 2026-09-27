@@ -8,6 +8,7 @@ async function setActiveNavLink() {
 		const order_id = window.location.hash.substring(1)
 		if(order_id){
 			let response = await send(null,"GET",`sales_orders/${order_id}`);
+	if (!response.success) { alert(response.message); return; }
 			if(response == undefined || response == null){
 				alert(`could not fetch order ${order_id} from the server.`);
 				return;
@@ -178,98 +179,54 @@ function loadTheme() {
 }
 
 async function loadDashboardOrders() {
-	
-	// Load Sales Orders
-	try {
-		const salesResponse = await send(null, "GET", "reports/sales_orders_week");
-		if (salesResponse && salesResponse.message && !salesResponse.message.includes("there are no orders")) {
-			displaySalesOrdersThisWeek(salesResponse.message);
-		} else {
-			document.getElementById("sales-orders-week").innerHTML = 
-				'<p style="text-align: center; color: var(--text-secondary); padding: var(--spacing-xl);">No sales orders to ship this week.</p>';
-		}
-	} catch (error) {
-		document.getElementById("sales-orders-week").innerHTML = 
-			'<p style="text-align: center; color: var(--text-danger, #ef4444); padding: var(--spacing-xl);">Error loading sales orders.</p>';
-	}
-	
-	// Load Purchase Orders
-	try {
-		const poResponse = await send(null, "GET", "purchase_orders");
-		if (poResponse && poResponse.message && !poResponse.message.includes("there are no orders")) {
-			displayPurchaseOrdersThisWeek(poResponse.message, weekRange);
-		} else {
-			document.getElementById("purchase-orders-week").innerHTML = 
-				'<p style="text-align: center; color: var(--text-secondary); padding: var(--spacing-xl);">No purchase orders to receive this week.</p>';
-		}
-	} catch (error) {
-		document.getElementById("purchase-orders-week").innerHTML = 
-			'<p style="text-align: center; color: var(--text-danger, #ef4444); padding: var(--spacing-xl);">Error loading purchase orders.</p>';
-	}
+    for (const [resource, id, render] of [
+        ['reports/sales_orders_week', 'sales-orders-week', displaySalesOrdersThisWeek],
+        ['purchase_orders', 'purchase-orders-week', displayPurchaseOrdersThisWeek]
+    ]) {
+        const response = await send(null, 'GET', resource);
+        if (!response.success) {
+            document.getElementById(id).textContent = response.message;
+            continue;
+        }
+        const orders = response.message;
+        if (typeof orders === 'string' && orders.includes('there are no orders')) render([]);
+        else if (Array.isArray(orders)) render(orders);
+        else document.getElementById(id).textContent = 'Invalid order list returned by server.';
+    }
 }
 
-async function displaySalesOrdersThisWeek(orders) {
-	const container = document.getElementById("sales-orders-week");
-	
-	
-	console.log(orders)
-	if (!orders || orders.length === 0) {
-		container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: var(--spacing-xl);">No sales orders to ship this week.</p>';
-		return;
-	}
-	
-	let html = '<div class="dashboard-orders-list">';
-	orders.forEach(orderId => {
-		html += `
-			<div class="dashboard-order-item">
-				<a href="sales_orders.html#${orderId}" style="text-decoration: none; color: var(--primary-color); font-weight: 600;">
-					Order #${orderId}
-				</a>
-			</div>
-		`;
-	});
-	
-	html += '</div>';
-	container.innerHTML = html;
+function displayOrderList(orders, id, sales) {
+    const container = document.getElementById(id);
+    container.replaceChildren();
+    if (!orders.length) {
+        container.textContent = sales ? 'No sales orders to ship this week.' : 'No purchase orders to receive.';
+        return;
+    }
+    const list = document.createElement('div');
+    list.className = 'dashboard-orders-list';
+    for (const orderId of (sales ? orders : orders.slice(0, 10))) {
+        const row = document.createElement('div');
+        row.className = 'dashboard-order-item';
+        const link = document.createElement('a');
+        link.textContent = `${sales ? 'Order #' : 'PO #'}${orderId}`;
+        link.href = sales ? `sales_orders.html#${encodeURIComponent(orderId)}` : 'purchase_orders.html';
+        row.appendChild(link);
+        list.appendChild(row);
+    }
+    if (!sales && orders.length > 10) {
+        const more = document.createElement('p');
+        more.textContent = `And ${orders.length - 10} more orders...`;
+        list.appendChild(more);
+    }
+    container.appendChild(list);
 }
 
-function displayPurchaseOrdersThisWeek(orders, weekRange) {
-	const container = document.getElementById("purchase-orders-week");
-	
-	if (!orders || orders.length === 0) {
-		container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: var(--spacing-xl);">No purchase orders to receive this week.</p>';
-		return;
-	}
-	
-	const weekOrders = [];
-	orders.forEach(orderId => {
-		weekOrders.push(orderId);
-	});
-	
-	if (weekOrders.length === 0) {
-		container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: var(--spacing-xl);">No purchase orders to receive this week.</p>';
-		return;
-	}
-	
-	let html = '<div class="dashboard-orders-list">';
-	weekOrders.slice(0, 10).forEach(orderId => {
-		html += `
-			<div class="dashboard-order-item">
-				<a href="purchase_orders.html" style="text-decoration: none; color: var(--primary-color); font-weight: 600;">
-					PO #${orderId}
-				</a>
-			</div>
-		`;
-	});
-	
-	if (weekOrders.length > 10) {
-		html += `<p style="text-align: center; color: var(--text-secondary); margin-top: var(--spacing-md);">
-			And ${weekOrders.length - 10} more orders...
-		</p>`;
-	}
-	
-	html += '</div>';
-	container.innerHTML = html;
+function displaySalesOrdersThisWeek(orders) {
+    displayOrderList(orders, 'sales-orders-week', true);
+}
+
+function displayPurchaseOrdersThisWeek(orders) {
+    displayOrderList(orders, 'purchase-orders-week', false);
 }
 
 // Set active link and load menu on page load
@@ -428,6 +385,7 @@ function check_input(event){
 				clearDropdown();
 				/*this fetch the order selected from the server*/
 				let response = await send(null,"GET",`sales_orders/${order}`);
+	if (!response.success) { alert(response.message); return; }
 
 				/*if there is a table already, destroy it and make a new one */
 				/*create the order form populated with the order sales from the back end selected*/
@@ -603,6 +561,7 @@ function check_input(event){
 				if(root){
 					/*get the customer selected by the users*/
 					let response = await send(null,"GET",`customers/${customer}`);
+	if (!response.success) { alert(response.message); return; }
 					/*TODO: remove this when you ready*/
 					console.log(JSON.stringify(response.message));
 						
@@ -802,6 +761,7 @@ function check_input(event){
 
 					/*get the customer selected by the users*/
 					let response = await send(null,"GET",`sales_new_order_customers/${customer}`);
+	if (!response.success) { alert(response.message); return; }
 
 					/*save data in the browser storage*/
 					localStorage.setItem('customer_order',JSON.stringify(response.message));
@@ -847,6 +807,7 @@ function check_input(event){
 
 				/*get the item selected by the users*/
 				let response = await send(null,"GET",`items/${item}`);
+	if (!response.success) { alert(response.message); return; }
 
 				console.log(JSON.stringify(response.message))
 				/*populate the table price and uom*/
@@ -880,8 +841,9 @@ function check_input(event){
 }
 
 async function get_orders(){
-	const response = await send(null,"GET","sales_orders");	
-	if(response.message.includes("there are no orders")){
+	const response = await send(null,"GET","sales_orders");
+	if (!response.success) { alert(response.message); return; }
+	if(typeof response.message === "string" && response.message.includes("there are no orders")){
 		alert(response.message);		
 		clear_order_screen();
 		return;
@@ -896,7 +858,8 @@ async function get_orders(){
 
 
 async function get_items(event){
-	const response = await send(null,"GET","items");	
+	const response = await send(null,"GET","items");
+	if (!response.success) { alert(response.message); return; }
 	items_list = response.message;
 
 	console.log(items_list);
@@ -905,61 +868,55 @@ async function get_items(event){
 	input.addEventListener("input",check_input);
 }
 
-async function get_overdue_orders(event){
-	const response = await send(null,"GET","reports/overdue_orders");
-
-	let data_to_show = "<h4>Overdue Orders:</h4>";
-	for(const [key,value] of Object.entries(response.message)){
-		if(key === 'orders_total')
-			continue;
-		data_to_show +=	`order nr ${key}, for customer ${response.message[key].customer_id},total : ${response.message[key].total}<br>`;
-	}
-	data_to_show += `total overdue orders ${response.message.orders_total}`;
-
-	let report_container = document.getElementById("report-container");
-	if(!report_container){
-		const container = document.getElementById("report-order-menu");
-		let html = `<div class="report" id="report-container">${data_to_show}</div>`;
-		container.insertAdjacentHTML('beforeend',html);
-	}else{
-		if(data_to_show === report_container.innerHTML){
-			console.log("data is the same!");
-			return;
-		}
-		report_container.innerHTML = `<div class="report">${data_to_show}</div>`;
-	}
+async function renderOrderReport(resource, title, clickable) {
+    const response = await send(null, 'GET', resource);
+    if (!response.success) { alert(response.message); return; }
+    const data = response.message;
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        alert(typeof data === 'string' ? data : 'Invalid report returned by server.');
+        return;
+    }
+    let container = document.getElementById('report-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'report-container';
+        container.className = 'report';
+        document.getElementById('report-order-menu').appendChild(container);
+    }
+    container.replaceChildren();
+    const heading = document.createElement('h4');
+    heading.textContent = title;
+    container.appendChild(heading);
+    for (const [key, order] of Object.entries(data)) {
+        if (key === 'orders_total' || !order || typeof order !== 'object') continue;
+        const row = document.createElement('div');
+        row.appendChild(document.createTextNode('order nr '));
+        if (clickable && /^\d+$/.test(key)) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'clickable-word';
+            button.textContent = key;
+            button.addEventListener('click', () => show_order_in_report_section(key));
+            row.appendChild(button);
+        } else row.appendChild(document.createTextNode(key));
+        row.appendChild(document.createTextNode(`, for customer ${order.customer_id}, total: ${order.total}`));
+        container.appendChild(row);
+    }
+    const total = document.createElement('p');
+    total.textContent = `Total ${title.toLowerCase()}: ${data.orders_total ?? ''}`;
+    container.appendChild(total);
 }
 
-async function get_open_orders(event){
-	const response = await send(null,"GET","reports/open_orders");
+async function get_overdue_orders() {
+    return renderOrderReport('reports/overdue_orders', 'Overdue orders', false);
+}
 
-
-	let data_to_show = '<h4>Open Orders</h4>';
-	for(const [key,value] of Object.entries(response.message)){
-		if(key === 'orders_total')
-			continue;
-		data_to_show +=	`order nr <span class="clickable-word" onclick="show_order_in_report_section(${key})">${key}</span>, for customer ${response.message[key].customer_id},total : ${response.message[key].total}<br>`;
-
-	}
-
-	data_to_show += `total open orders ${response.message.orders_total}`;
-
-	let report_container = document.getElementById("report-container");
-	if(!report_container){
-		const container = document.getElementById("report-order-menu");
-		let html = `<div class="report" id="report-container">${data_to_show}</div>`;
-		container.insertAdjacentHTML('beforeend',html);
-	}else{
-		if(data_to_show === report_container.innerHTML){
-			console.log("data is the same!");
-			return;
-		}
-
-		report_container.innerHTML = `<div class="report">${data_to_show}</div>`;
-	}
+async function get_open_orders() {
+    return renderOrderReport('reports/open_orders', 'Open orders', true);
 }
 async function get_customers(event){
-	const response = await send(null,"GET","customers");	
+	const response = await send(null,"GET","customers");
+	if (!response.success) { alert(response.message); return; }
 	customers_list = response.message;
 
 	console.log(customers_list);
@@ -2504,15 +2461,13 @@ async function submit_order(crud_op,value,from_table){
 
 	const json_payload = JSON.stringify(payload);
 	if(crud_op === "new"){
-		console.log(json_payload);
 		const response = await send(json_payload,"POST","new_sales_order");
 		alert(`${response.message}`);
 		//clear_order_screen();
 	}else if (crud_op === "update"){
-		console.log(json_payload);
 		const response = await send(json_payload,"POST",`update_orders/sales/${value}`);
 		alert(`${response.message}`);
-		clear_order_screen();
+        if (response.success) clear_order_screen();
 	}
 }
 
@@ -2849,6 +2804,7 @@ function repopulate_edit_order_table(response,tbl,id=null,order_nr){
 async function show_order_in_report_section(order_nr){
 
 	let response = await send(null,"GET",`sales_orders/${order_nr}`);
+	if (!response.success) { alert(response.message); return; }
 	if(response == undefined || response == null){
 		alert(`could not fetch order ${order_nr} from the server.`);
 		return ;
