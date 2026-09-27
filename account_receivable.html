@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<link rel="stylesheet" href="style.css">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Account Receivable - BSM</title>
+	<script type="module" src="script.js"></script>
+</head>
+<body>
+	<nav class="sidenav" role="navigation" aria-label="Main navigation">
+		<a href="index.html">🏠 Dashboard</a>
+		<a href="sales_orders.html">📋 Sales Orders</a>
+		<a href="purchase_orders.html">🛒 Purchase Orders</a>
+		<a href="account_receivable.html" class="active">💰 Account Receivable</a>
+		<a href="account_payable.html">💳 Account Payable</a>
+		<a href="inventory.html">🏷️ Inventory</a>
+		<a href="general_ledger.html">📊 General Ledger</a>
+		<a href="customers.html">👥 Customers</a>
+		<div class="sidenav-settings">
+			<a href="#" class="settings-link" id="settings-link">⚙️ Settings</a>
+		</div>
+	</nav>
+	<main class="main">
+		<div class="page-header">
+			<h1>Account Receivable</h1>
+			<p>Track money owed to your business</p>
+		</div>
+		<div class="card fade-in">
+			<p>Account receivable management coming soon...</p>
+		</div>
+	</main>
+	
+	<!-- Settings Modal -->
+	<div class="settings-modal" id="settings-modal">
+		<div class="settings-modal-content">
+			<div class="settings-modal-header">
+				<h2>Settings</h2>
+				<button class="settings-close" id="settings-close">&times;</button>
+			</div>
+			
+			<div class="settings-section">
+				<div class="settings-section-title">Theme</div>
+				<div class="settings-option">
+					<div class="settings-option-label">Color Theme</div>
+					<div class="theme-selector">
+						<button class="theme-option active" data-theme="light">Light</button>
+						<button class="theme-option" data-theme="dark">Dark</button>
+					</div>
+				</div>
+			</div>
+			
+			<div class="settings-section">
+				<div class="settings-section-title">Other Settings</div>
+				<p style="color: var(--text-secondary); font-size: var(--font-size-sm);">More settings coming soon...</p>
+			</div>
+		</div>
+	</div>
+</body>
+</html>
